@@ -6,11 +6,6 @@ Agent::Agent()
 	Q.addLayer(32, 2, 2, 32, 1, 0);
 	Q.addLayer(128, 3, 3, 32, 1, 0);
 	Q.addLayer(4, 1, 1, 128, 1, 0);
-
-	/*Q.addLayer(32, 4, 4, 2, 2, 0);
-	Q.addLayer(32, 3, 3, 32, 1, 0);
-	Q.addLayer(128, 7, 7, 32, 1, 0);
-	Q.addLayer(4, 1, 1, 128, 1, 0);*/
 }
 
 Direction Agent::optimalAction(const Tensor3D& state, std::vector<Tensor3D>& tensorStack) const
@@ -28,9 +23,10 @@ Direction Agent::optimalAction(const Tensor3D& state, std::vector<Tensor3D>& ten
 
 void Agent::train(size_t nbEpisodes, size_t batchSize, size_t replayMemorySize, double discountFactor, double epsStart, double epsEnd, double epsDecay, double momentumTerm, double smoothingTerm)
 {
-	Game game(10, true);
+	Game game(10);
 
-	size_t steps(0), episodes(0), episodeSteps(0);
+	size_t steps(0), episodes(0);
+	int episodeSteps(0);
 
 	std::mt19937 generator(std::random_device{}());
 	std::uniform_real_distribution<double> rand(0.0, 1.0);
@@ -41,56 +37,50 @@ void Agent::train(size_t nbEpisodes, size_t batchSize, size_t replayMemorySize, 
 
 	// Fill the replay memory
 	for (size_t i(0); i < replayMemorySize; ++i, ++episodeSteps) {
-		Transition t(game, Direction(randAction(generator)));
-		replayMemory.push(t); // Mostly snake doing nothing
+		Transition* t = new Transition(game, Direction(randAction(generator)));
+		replayMemory.push(t, _priority(t->reward, 0.6, 1e-6)); // Mostly snake doing nothing
 
-		if (t.isTerminal || episodeSteps >= 1) {
-			game.initialize(true);
-			episodeSteps = 0;
+		if (t->isTerminal || episodeSteps >= 10 + 100 * game.score()) {
+			game.initialize();
+			episodeSteps = -1;
 		}
 	}
 
-	//Agent targetAgent(*this); // DDQL
 
+	// Double DQN
 	size_t agent = 0;
 
-	std::array<Agent*, 2> agents;
-	agents[0] = this;
-	agents[1] = new Agent();
+	Agent otherAgent;
+	std::array<Agent*, 2> agents = { this, &otherAgent };
 	std::array<std::string, 2> weightsPath = { "weights.txt", "weights2.txt" };
 
 	// Start the training
 	while (episodes < nbEpisodes) {
-		Transition t; // Current transition
+		Transition* t = new Transition; // Current transition
 		std::vector<Tensor3D> x;
 		double epsilon(epsEnd + (epsStart - epsEnd) * exp(-1.0 * steps * epsDecay));
 
-		t.state = Tensor3D({ game.state() });
+		t->state = Tensor3D(game.state());
 
 		// Select an action to perform (epsilon-greedy policy)
 		if (rand(generator) > epsilon)
-			t.action = optimalAction(t.state, x);
+			t->action = optimalAction(t->state, x);
 		else
-			t.action = Direction(randAction(generator));
+			t->action = Direction(randAction(generator));
 
-		t = Transition(game, t.action);
+		*t = Transition(game, t->action);
 
-		if (t.isTerminal || (episodeSteps >= 10 * (game.score() + 1))) {
+		if (t->isTerminal || episodeSteps >= 10 + 100 * game.score()) {
 			++episodes;
-			episodeSteps = 0;
-			std::cout << episodes << " / " << nbEpisodes << ": " << game.score();
-
-			game.initialize(true);
-
-
-			std::cout << " (saving - ";
+			episodeSteps = -1;
+			std::cout << episodes << " / " << nbEpisodes << ": " << game.score() << "\n";
 
 			agents[agent]->saveToFile(weightsPath[agent]);
-			std::cout << "saved)\n";
+			game.initialize();
 		}
 
-		replayMemory.push(t);
-		std::vector<Transition> batch(replayMemory.sample(batchSize));
+		replayMemory.push(t, 100.0); // Big priority to ensure it will be sampled immediately
+		std::vector<size_t> batch(replayMemory.sample(batchSize));
 
 
 		std::vector<std::vector<std::vector<Tensor3D>>> weightsGradients(batch.size());
@@ -98,7 +88,8 @@ void Agent::train(size_t nbEpisodes, size_t batchSize, size_t replayMemorySize, 
 
 		// Compute gradients for the batch
 		for (size_t i(0); i < batch.size(); ++i) {
-			agents[agent]->optimalAction(batch[i].state, x);
+			t = replayMemory[batch[i]].transition;
+			agents[agent]->optimalAction(t->state, x);
 
 			// Compute target vector
 			Eigen::VectorXd target(x.back().depth());
@@ -106,19 +97,20 @@ void Agent::train(size_t nbEpisodes, size_t batchSize, size_t replayMemorySize, 
 			for (size_t i(0); i < x.back().depth(); ++i)
 				target(i) = x.back()(0, 0, i);
 
-			target(batch[i].action) = batch[i].reward;
+			target(t->action) = t->reward;
 
-			if (!batch[i].isTerminal) {
+			if (!t->isTerminal) {
 				Direction nextAction;
 				std::vector<Tensor3D> nextX;
 
-				nextAction = agents[agent]->optimalAction(batch[i].nextState);
-				agents[1 - agent]->optimalAction(batch[i].nextState, nextX);
+				nextAction = agents[agent]->optimalAction(t->nextState);
+				agents[1 - agent]->optimalAction(t->nextState, nextX);
 
-				target(batch[i].action) += discountFactor * nextX.back()(0, 0, nextAction);
+				target(t->action) += discountFactor * nextX.back()(0, 0, nextAction);
 			}
-			
-			agents[agent]->Q.backward(x, target, weightsGradients[i], biasesGradients[i], 2.0);
+
+			replayMemory.setVal(batch[i], _priority(x.back()(0, 0, t->action) - target(t->action), 0.6, 1e-6)); // Update transition priority
+			agents[agent]->Q.backward(x, target, weightsGradients[i], biasesGradients[i]);
 		}
 
 		// Average the gradients
@@ -152,8 +144,6 @@ void Agent::train(size_t nbEpisodes, size_t batchSize, size_t replayMemorySize, 
 
 		agent = randAgent(generator);
 	}
-
-	delete agents[1];
 }
 
 void Agent::saveToFile(const std::string& path) const
@@ -212,4 +202,9 @@ void Agent::loadFromFile(const std::string& path)
 			file >> Q.layer(l).kernels[k].bias;
 		}
 	}
+}
+
+double Agent::_priority(double p, double alpha, double epsilon)
+{
+	return std::pow(std::abs(p) + epsilon, alpha);
 }

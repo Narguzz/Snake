@@ -17,21 +17,34 @@ struct Transition
 	bool isTerminal;
 };
 
+struct Node
+{
+	Node();
 
-// = Circular buffer
+	double value;
+	Transition* transition;
+};
+
 class ReplayMemory
 {
 public:
 	ReplayMemory(size_t);
+	~ReplayMemory();
 
-	size_t capacity() const;
-	std::vector<Transition> sample(size_t) const;
+	void push(Transition*, double);
+	void setVal(size_t, double);
 
-	void push(const Transition&);
+	std::vector<size_t> sample(size_t) const;
+	
+	const Node& operator[](size_t) const;
 
 private:
-	size_t mCapacity, mPos;
-	std::vector<Transition> mMemory;
+	void _update(size_t, double);
+	size_t _retrieve(size_t, double) const;
+
+	size_t mFirstLeaf;
+	size_t mPos;
+	std::vector<Node> mNodes;
 };
 
 #endif // REPLAYMEMORY_H

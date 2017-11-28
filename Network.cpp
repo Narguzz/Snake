@@ -11,7 +11,7 @@ std::vector<Tensor3D> Network::forward(const Tensor3D& input) const
 }
 
 // Compute the gradient
-void Network::backward(const std::vector<Tensor3D>& tensorStack, const Eigen::VectorXd& target, std::vector<std::vector<Tensor3D>>& weightsGradient, std::vector<std::vector<double>>& biasesGradient, double huberLossDelta)
+void Network::backward(const std::vector<Tensor3D>& tensorStack, const Eigen::VectorXd& target, std::vector<std::vector<Tensor3D>>& weightsGradient, std::vector<std::vector<double>>& biasesGradient)
 {
 	double loss(0);
 	int l(tensorStack.size() - 1);
@@ -24,14 +24,9 @@ void Network::backward(const std::vector<Tensor3D>& tensorStack, const Eigen::Ve
 	for (const Tensor3D& tensor : tensorStack)
 		deltas.push_back(Tensor3D(tensor.height(), tensor.width(), tensor.depth())); // We want the same structure as "predicted" but without copying
 
-	for (int i(0); i < target.size(); ++i) {
-		// Huber Loss
-
+	// L2 Loss
+	for (int i(0); i < target.size(); ++i)
 		deltas[l](0, 0, i) = tensorStack[l](0, 0, i) - target(i);
-
-		if (std::abs(deltas[l](0, 0, i)) > huberLossDelta)
-			deltas[l](0, 0, i) = huberLossDelta * (std::abs(deltas[l](0, 0, i)) / deltas[l](0, 0, i));
-	}
 
 	--l;
 
@@ -111,7 +106,7 @@ void Network::applyGradient(const std::vector<std::vector<Tensor3D>>& weightsGra
 void Network::addLayer(size_t nbKernels, size_t kernelHeight, size_t kernelWidth, size_t kernelChannels, size_t stride, size_t padding)
 {
 	mLayers.push_back({ std::vector<Kernel>(nbKernels, { Tensor3D(kernelHeight, kernelWidth, kernelChannels), 0.0 }), stride, padding });
-	
+
 
 	std::mt19937 generator(std::random_device{}());
 	std::normal_distribution<double> rand(0.0, 1.0);

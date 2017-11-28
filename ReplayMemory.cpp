@@ -4,52 +4,90 @@ Transition::Transition()
 {
 }
 
-Transition::Transition(Game& g, Direction a) :
-	state({ g.state() }), action(a), reward(g.nextState(action)), nextState({ g.state() }), isTerminal(g.isFinished())
+Transition::Transition(Game& g, Direction a)
+{
+	state = g.state();
+	action = a;
+	reward = g.nextState(a);
+	nextState = g.state();
+	isTerminal = g.isFinished();
+}
+
+
+Node::Node() : transition(nullptr), value(0.0)
 {
 }
 
-ReplayMemory::ReplayMemory(size_t capacity) :
-	mCapacity(capacity),
-	mPos(0)
+ReplayMemory::ReplayMemory(size_t leaves)
 {
+	size_t size = std::pow(2, std::ceil(std::log2(leaves))) + leaves - 1;
+	mNodes = std::vector<Node>(size);
+	mFirstLeaf = size - leaves;
+	
+	mPos = mFirstLeaf;
 }
 
-size_t ReplayMemory::capacity() const
+ReplayMemory::~ReplayMemory()
 {
-	return mCapacity;
+	for (Node& node : mNodes)
+		delete node.transition;
 }
 
-std::vector<Transition> ReplayMemory::sample(size_t n) const
+void ReplayMemory::push(Transition* t, double priority)
 {
-	if (n > mMemory.size())
-		return mMemory;
+	delete mNodes[mPos].transition;
+	mNodes[mPos].transition = t;
+	setVal(mPos - mFirstLeaf, priority);
 
-	std::vector<Transition> batch(n);
-	std::unordered_set<size_t> set;
+	++mPos;
+
+	if (mPos >= mNodes.size())
+		mPos = mFirstLeaf;
+}
+
+// The user can only update leaves
+void ReplayMemory::setVal(size_t k, double newVal)
+{
+	size_t i(mFirstLeaf + k % (mNodes.size() - mFirstLeaf));
+	_update(i, newVal - mNodes[i].value);
+}
+
+std::vector<size_t> ReplayMemory::sample(size_t n) const
+{
+	std::vector<size_t> batch(n);
 
 	std::mt19937 generator(std::random_device{}());
-	std::uniform_int_distribution<size_t> distribution(0, mMemory.size() - 1);
+	std::uniform_real_distribution<double> distribution(0.0, mNodes[0].value);
 
-	while (set.size() < n)
-		set.emplace(distribution(generator));
-
-	size_t i(0);
-
-	for (size_t x : set) {
-		batch[i] = mMemory[x];
-		++i;
-	}
+	for (size_t& k : batch)
+		k = _retrieve(0, distribution(generator));
 
 	return batch;
 }
 
-void ReplayMemory::push(const Transition& t)
+// Access a leaf node
+const Node & ReplayMemory::operator[](size_t k) const
 {
-	if (mPos >= mMemory.size())
-		mMemory.push_back(t);
+	return mNodes[mFirstLeaf + k % (mNodes.size() - mFirstLeaf)];
+}
+
+// Recursive function
+void ReplayMemory::_update(size_t k, double delta)
+{
+	mNodes[k].value += delta;
+
+	// If we are not updating the root node, update parent (sum heap)
+	if (k)
+		_update((k - 1) / 2, delta);
+}
+
+size_t ReplayMemory::_retrieve(size_t n, double sum) const
+{
+	if (n >= mFirstLeaf)
+		return n - mFirstLeaf;
+
+	if (mNodes[2 * n + 1].value >= sum)
+		return _retrieve(2 * n + 1, sum); // 2n + 1 is the index of the left child of the node at index n
 	else
-		mMemory[mPos] = t;
-	
-	++mPos %= capacity();
+		return _retrieve(2 * n + 2, sum - mNodes[2 * n + 1].value);
 }

@@ -6,12 +6,6 @@
 #include <iostream>
 #include "Tensor3D.h"
 
-/*enum SquareType {
-	Empty,
-	Body,
-	Apple
-};*/
-
 enum Direction {
 	Up,
 	Right,
@@ -28,13 +22,13 @@ struct Coords
 class Game
 {
 public:
-	Game(int, bool);
-	void initialize(bool);
+	Game(int);
+	void initialize();
 	double nextState(Direction);
 
 	bool isFinished() const;
 
-	Eigen::MatrixXd state() const;
+	Tensor3D state() const;
 	std::vector<Eigen::Matrix<bool, -1, -1>> grid() const;
 	double score() const;
 

@@ -22,6 +22,8 @@ public:
 	void loadFromFile(const std::string&);
 
 private:
+	double _priority(double, double, double);
+
 	Network Q;
 };
 

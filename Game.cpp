@@ -1,14 +1,14 @@
 #include "Game.h"
 
-Game::Game(int gridSize, bool spawnNextToApple) :
+Game::Game(int gridSize) :
 	mGenerator(std::random_device{}()),
 	mRandCoord(0, gridSize - 1),
 	mGrid(2, Eigen::Matrix<bool, -1, -1>(gridSize, gridSize))
 {
-	initialize(spawnNextToApple);
+	initialize();
 }
 
-void Game::initialize(bool spawnNextToApple)
+void Game::initialize()
 {
 	for (size_t i(0); i < mGrid[0].rows(); ++i)
 		for (size_t j(0); j < mGrid[0].cols(); ++j)
@@ -22,9 +22,7 @@ void Game::initialize(bool spawnNextToApple)
 
 	mIsFinished = false;
 
-	do {
-		_generateApple();
-	} while (spawnNextToApple && std::pow(int(mApple.x) - int(mBody[0].x), 2) + std::pow(int(mApple.y) - int(mBody[0].y), 2) > 1);
+	_generateApple();
 }
 
 double Game::nextState(Direction move)
@@ -47,9 +45,9 @@ bool Game::isFinished() const
 	return mIsFinished;
 }
 
-Eigen::MatrixXd Game::state() const
+Tensor3D Game::state() const
 {
-	Eigen::MatrixXd state = Eigen::MatrixXd::Zero(mGrid[0].rows(), mGrid[0].cols());
+	Tensor3D state(mGrid[0].rows(), mGrid[0].cols(), 1);
 
 	for (size_t i(0); i < mGrid[0].rows(); ++i) {
 		for (size_t j(0); j < mGrid[0].cols(); ++j) {
@@ -57,7 +55,7 @@ Eigen::MatrixXd Game::state() const
 				y = (j - mBody[0].y + int(mGrid[0].cols() * 1.5)) % mGrid[0].cols();
 
 			
-			state(x, y) = std::min(mGrid[0](i, j) + mGrid[1](i, j) * 0.299, 1.0);
+			state(x, y, 0) = std::min(mGrid[0](i, j) + mGrid[1](i, j) * 0.299, 1.0);
 		}
 	}
 

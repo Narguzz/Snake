@@ -16,7 +16,7 @@ class Network
 {
 public:
 	std::vector<Tensor3D> forward(const Tensor3D&) const;
-	void backward(const std::vector<Tensor3D>&, const Eigen::VectorXd&, std::vector<std::vector<Tensor3D>>&, std::vector<std::vector<double>>&, double);
+	void backward(const std::vector<Tensor3D>&, const Eigen::VectorXd&, std::vector<std::vector<Tensor3D>>&, std::vector<std::vector<double>>&);
 
 	void applyGradient(const std::vector<std::vector<Tensor3D>>&, const std::vector<std::vector<double>>&, double, double);
 
@@ -25,7 +25,7 @@ public:
 	Layer& layer(size_t);
 	const Layer& layer(size_t) const;
 
-//private:
+private:
 	void _update(double&, double&, double&, double, double, double);
 
 	std::vector<Layer> mLayers;
