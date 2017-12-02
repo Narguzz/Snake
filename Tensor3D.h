@@ -35,16 +35,14 @@ struct Kernel
 		weights(w), 
 		bias(b), 
 		weightsAvgGrad(weights.height(), weights.width(), weights.depth()),
-		weightsAvgUpdate(weights.height(), weights.width(), weights.depth()),
-		biasAvgGrad(0.0),
-		biasAvgUpdate(0.0)
+		biasAvgGrad(0.0)
 	{ }
 
 	Tensor3D weights;
 	double bias;
 
-	Tensor3D weightsAvgGrad, weightsAvgUpdate;
-	double biasAvgGrad, biasAvgUpdate;
+	Tensor3D weightsAvgGrad;
+	double biasAvgGrad;
 };
 
 Tensor3D convolution(const Tensor3D&, const std::vector<Kernel>&, int, int);

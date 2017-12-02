@@ -84,7 +84,7 @@ void Network::backward(const std::vector<Tensor3D>& tensorStack, const Eigen::Ve
 	}
 }
 
-void Network::applyGradient(const std::vector<std::vector<Tensor3D>>& weightsGrad, const std::vector<std::vector<double>>& biasesGrad, double momentumTerm, double smoothingTerm)
+void Network::applyGradient(const std::vector<std::vector<Tensor3D>>& weightsGrad, const std::vector<std::vector<double>>& biasesGrad, double learningRate, double momentumTerm, double epsilon)
 {
 	for (size_t l(0); l < mLayers.size(); ++l) {
 		size_t kernelHeight = mLayers[l].kernels[0].weights.height(),
@@ -93,12 +93,12 @@ void Network::applyGradient(const std::vector<std::vector<Tensor3D>>& weightsGra
 			   nbKernels = mLayers[l].kernels.size();
 
 		for (size_t k(0); k < nbKernels; ++k) {
-			_update(mLayers[l].kernels[k].bias, mLayers[l].kernels[k].biasAvgGrad, mLayers[l].kernels[k].biasAvgUpdate, biasesGrad[l][k], momentumTerm, smoothingTerm);
+			_update(mLayers[l].kernels[k].bias, mLayers[l].kernels[k].biasAvgGrad, biasesGrad[l][k], learningRate, momentumTerm, epsilon);
 
 			for (size_t m(0); m < kernelHeight; ++m)
 				for (size_t n(0); n < kernelWidth; ++n)
 					for (size_t c(0); c < kernelDepth; ++c)
-						_update(mLayers[l].kernels[k].weights(m, n, c), mLayers[l].kernels[k].weightsAvgGrad(m, n, c), mLayers[l].kernels[k].weightsAvgUpdate(m, n, c), weightsGrad[l][k](m, n, c), momentumTerm, smoothingTerm);
+						_update(mLayers[l].kernels[k].weights(m, n, c), mLayers[l].kernels[k].weightsAvgGrad(m, n, c), weightsGrad[l][k](m, n, c), learningRate, momentumTerm, epsilon);
 		}
 	}
 }
@@ -128,11 +128,8 @@ const Layer& Network::layer(size_t l) const
 	return const_cast<Network*>(this)->layer(l);
 }
 
-void Network::_update(double& x, double& avgGrad, double& avgUpdate, double grad, double momentumTerm, double smoothingTerm)
+void Network::_update(double& x, double& avgGrad, double grad, double learningRate, double momentumTerm, double epsilon)
 {
 	avgGrad = momentumTerm * avgGrad + (1 - momentumTerm) * grad * grad;
-	double update = -std::sqrt((avgUpdate + smoothingTerm) / (avgGrad + smoothingTerm)) * grad;
-	avgUpdate = momentumTerm * avgUpdate + (1 - momentumTerm) * update * update;
-
-	x += update;
+	x -= learningRate / std::sqrt(avgGrad + epsilon) * grad;
 }
