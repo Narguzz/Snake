@@ -128,6 +128,11 @@ const Layer& Network::layer(size_t l) const
 	return const_cast<Network*>(this)->layer(l);
 }
 
+size_t Network::layers() const
+{
+	return mLayers.size();
+}
+
 void Network::_update(double& x, double& avgGrad, double grad, double learningRate, double momentumTerm, double epsilon)
 {
 	avgGrad = momentumTerm * avgGrad + (1 - momentumTerm) * grad * grad;

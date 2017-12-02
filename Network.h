@@ -25,6 +25,8 @@ public:
 	Layer& layer(size_t);
 	const Layer& layer(size_t) const;
 
+	size_t layers() const;
+
 private:
 	void _update(double&, double&, double, double, double, double);
 

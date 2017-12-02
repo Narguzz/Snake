@@ -161,7 +161,7 @@ void Agent::saveToFile(const std::string& path) const
 
 	int kernelHeight(0), kernelWidth(0), kernelDepth(0);
 
-	for (int l(0); l < 4; ++l) {
+	for (int l(0); l < Q.layers(); ++l) {
 		kernelHeight = Q.layer(l).kernels[0].weights.height();
 		kernelWidth = Q.layer(l).kernels[0].weights.width();
 		kernelDepth = Q.layer(l).kernels[0].weights.depth();
@@ -190,7 +190,7 @@ void Agent::loadFromFile(const std::string& path)
 
 	int kernelHeight(0), kernelWidth(0), kernelDepth(0);
 
-	for (int l(0); l < 4; ++l) {
+	for (int l(0); l < Q.layers(); ++l) {
 		kernelHeight = Q.layer(l).kernels[0].weights.height();
 		kernelWidth = Q.layer(l).kernels[0].weights.width();
 		kernelDepth = Q.layer(l).kernels[0].weights.depth();
