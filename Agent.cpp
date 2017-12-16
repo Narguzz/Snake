@@ -10,7 +10,8 @@ Agent::Agent()
 	Q.addLayer(16, 3, 3, 1, 1, 0);
 	Q.addLayer(32, 3, 3, 16, 1, 0);
 	Q.addLayer(64, 4, 4, 32, 1, 0);
-	Q.addLayer(256, 1, 1, 64, 1, 0);
+	Q.addLayer(128, 1, 1, 64, 1, 0);
+	Q.addLayer(256, 1, 1, 128, 1, 0);
 	Q.addLayer(4, 1, 1, 256, 1, 0);
 }
 
